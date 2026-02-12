@@ -3,3 +3,4 @@ plotly
 kaleido
 reportlab
 pandas
+matplotlib

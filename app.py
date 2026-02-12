@@ -121,7 +121,7 @@ if st.session_state.summary:
     st.metric("总资产", f"{summary['total_assets']:,.0f}")
     st.metric("净资产", f"{summary['net_assets']:,.0f}")
 
-    st.plotly_chart(fig, width="stretch")
+    st.plotly_chart(fig, use_container_width=True)
 
     st.subheader("三、家庭资产结构解读")
     st.subheader("📌 结构观察")

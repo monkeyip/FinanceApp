@@ -14,11 +14,25 @@ from reportlab.lib.units import cm
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from reportlab.lib import colors
 from datetime import datetime
+import matplotlib.font_manager as fm
+import matplotlib.pyplot as plt
 import os
 
 # pdf使用微软雅黑字体
-FONT_PATH = r"C:\Windows\Fonts\msyh.ttc"
-pdfmetrics.registerFont(TTFont("MSYH", FONT_PATH))
+# FONT_PATH = r"C:\Windows\Fonts\msyh.ttc"
+# pdfmetrics.registerFont(TTFont("MSYH", FONT_PATH))
+
+
+# 使用相对路径（关键！）
+FONT_PATH = os.path.join("fonts", "msyh.ttc")  # 或直接写 "fonts/msyh.ttc"
+
+# 将字体添加到 matplotlib 字体管理器
+fm.fontManager.addfont(FONT_PATH)
+
+# 设置字体属性
+prop = fm.FontProperties(fname=FONT_PATH)
+plt.rcParams["font.family"] = prop.get_name()  # 全局生效
+# 或者：pdfmetrics.registerFont(TTFont("MSYH", FONT_PATH))  # 如果你必须用 reportlab
 
 def _header_footer(canvas, doc):
     canvas.saveState()
