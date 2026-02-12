@@ -14,30 +14,86 @@ from reportlab.lib.units import cm
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from reportlab.lib import colors
 from datetime import datetime
-import matplotlib.font_manager as fm
-import matplotlib.pyplot as plt
 import os
 
-# pdf使用微软雅黑字体
-# FONT_PATH = r"C:\Windows\Fonts\msyh.ttc"
-# pdfmetrics.registerFont(TTFont("MSYH", FONT_PATH))
+# ============================================================
+# 中文字体配置（核心修复）
+# ============================================================
+
+# 定义字体名称常量
+CHINESE_FONT_NAME = "MicrosoftYaHei"
+FALLBACK_FONT_NAME = "Helvetica"
 
 
-# 使用相对路径（关键！）
-FONT_PATH = os.path.join("fonts", "msyh.ttc")  # 或直接写 "fonts/msyh.ttc"
+# 查找字体文件的函数
+def find_font_file():
+    """在多个可能的位置查找中文字体文件"""
 
-# 将字体添加到 matplotlib 字体管理器
-fm.fontManager.addfont(FONT_PATH)
+    # 当前文件所在目录
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(current_dir)  # 项目根目录
 
-# 设置字体属性
-prop = fm.FontProperties(fname=FONT_PATH)
-plt.rcParams["font.family"] = prop.get_name()  # 全局生效
-# 或者：pdfmetrics.registerFont(TTFont("MSYH", FONT_PATH))  # 如果你必须用 reportlab
+    possible_paths = [
+        # 相对路径（各种可能）
+        os.path.join("fonts", "msyh.ttc"),
+        os.path.join("fonts", "msyh.ttf"),
+        os.path.join(current_dir, "fonts", "msyh.ttc"),
+        os.path.join(current_dir, "fonts", "msyh.ttf"),
+        os.path.join(project_root, "fonts", "msyh.ttc"),
+        os.path.join(project_root, "fonts", "msyh.ttf"),
+    ]
+
+    for path in possible_paths:
+        if os.path.exists(path):
+            return path
+
+    return None
+
+
+# 注册中文字体
+def register_chinese_font():
+    """注册中文字体，返回是否成功"""
+
+    font_path = find_font_file()
+
+    if font_path and os.path.exists(font_path):
+        try:
+            # 注册字体
+            pdfmetrics.registerFont(TTFont(CHINESE_FONT_NAME, font_path))
+
+            # 注册字体族（支持粗体、斜体等）
+            pdfmetrics.registerFontFamily(
+                CHINESE_FONT_NAME,
+                normal=CHINESE_FONT_NAME,
+                bold=CHINESE_FONT_NAME,  # 如果有粗体文件可单独指定
+                italic=CHINESE_FONT_NAME,
+                boldItalic=CHINESE_FONT_NAME
+            )
+            print(f"✓ 成功注册中文字体: {font_path}")
+            return True
+        except Exception as e:
+            print(f"✗ 注册字体失败: {e}")
+            return False
+    else:
+        print("✗ 找不到中文字体文件，将使用英文字体")
+        return False
+
+
+# 初始化字体
+FONT_LOADED = register_chinese_font()
+ACTIVE_FONT = CHINESE_FONT_NAME if FONT_LOADED else FALLBACK_FONT_NAME
+
+
+# ============================================================
+# PDF 生成函数
+# ============================================================
 
 def _header_footer(canvas, doc):
+    """页眉页脚"""
     canvas.saveState()
 
-    canvas.setFont("MSYH", 9)
+    # 使用当前激活的字体
+    canvas.setFont(ACTIVE_FONT, 9)
     canvas.setFillColor(colors.grey)
 
     # 页眉
@@ -56,7 +112,10 @@ def _header_footer(canvas, doc):
 
     canvas.restoreState()
 
+
 def generate_pdf(file_path, summary, insights, chart_path):
+    """生成PDF报告"""
+
     doc = SimpleDocTemplate(
         file_path,
         pagesize=A4,
@@ -68,15 +127,18 @@ def generate_pdf(file_path, summary, insights, chart_path):
 
     styles = getSampleStyleSheet()
 
-    # 基础样式
-    styles["Normal"].fontName = "MSYH"
+    # ===== 基础样式 =====
+    # 修改 Normal 样式
+    styles["Normal"].fontName = ACTIVE_FONT
     styles["Normal"].fontSize = 10
     styles["Normal"].leading = 14
 
+    # ===== 自定义样式 =====
+    # 标题样式
     styles.add(
         ParagraphStyle(
             name="TitleCN",
-            fontName="MSYH",
+            fontName=ACTIVE_FONT,
             fontSize=18,
             leading=22,
             alignment=TA_CENTER,
@@ -84,10 +146,11 @@ def generate_pdf(file_path, summary, insights, chart_path):
         )
     )
 
+    # 章节标题样式
     styles.add(
         ParagraphStyle(
             name="SectionCN",
-            fontName="MSYH",
+            fontName=ACTIVE_FONT,
             fontSize=13,
             leading=18,
             spaceBefore=14,
@@ -95,13 +158,26 @@ def generate_pdf(file_path, summary, insights, chart_path):
         )
     )
 
+    # 小字样式
     styles.add(
         ParagraphStyle(
             name="SmallCN",
-            fontName="MSYH",
+            fontName=ACTIVE_FONT,
             fontSize=9,
             leading=12,
             textColor=colors.grey,
+        )
+    )
+
+    # 正文列表样式
+    styles.add(
+        ParagraphStyle(
+            name="ListItem",
+            fontName=ACTIVE_FONT,
+            fontSize=10,
+            leading=14,
+            leftIndent=10,
+            spaceAfter=2,
         )
     )
 
@@ -143,8 +219,10 @@ def generate_pdf(file_path, summary, insights, chart_path):
             [
                 ("BACKGROUND", (0, 0), (-1, 0), colors.whitesmoke),
                 ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-                ("FONT", (0, 0), (-1, -1), "MSYH"),
+                ("FONT", (0, 0), (-1, -1), ACTIVE_FONT),
                 ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("PADDING", (0, 0), (-1, -1), 6),
             ]
         )
     )
@@ -152,9 +230,14 @@ def generate_pdf(file_path, summary, insights, chart_path):
     story.append(table)
 
     # ===== 资产结构图 =====
-    story.append(Spacer(1, 16))
-    story.append(Paragraph("二、家庭资产结构分布", styles["SectionCN"]))
-    story.append(Image(chart_path, width=14 * cm, height=9 * cm))
+    if os.path.exists(chart_path):
+        story.append(Spacer(1, 16))
+        story.append(Paragraph("二、家庭资产结构分布", styles["SectionCN"]))
+        story.append(Image(chart_path, width=14 * cm, height=9 * cm))
+    else:
+        story.append(Spacer(1, 16))
+        story.append(Paragraph("二、家庭资产结构分布", styles["SectionCN"]))
+        story.append(Paragraph("（图表文件不存在）", styles["SmallCN"]))
 
     # ===== 解读建议 =====
     story.append(Spacer(1, 16))
@@ -164,19 +247,19 @@ def generate_pdf(file_path, summary, insights, chart_path):
     story.append(Spacer(1, 8))
     story.append(Paragraph("（一）结构观察", styles["Normal"]))
     for s in insights.get("structure", []):
-        story.append(Paragraph(f"• {s}", styles["Normal"]))
+        story.append(Paragraph(f"• {s}", styles["ListItem"]))
 
     # （二）潜在风险
     story.append(Spacer(1, 8))
     story.append(Paragraph("（二）潜在风险", styles["Normal"]))
     for r in insights.get("risk", []):
-        story.append(Paragraph(f"• {r}", styles["Normal"]))
+        story.append(Paragraph(f"• {r}", styles["ListItem"]))
 
     # （三）优化建议
     story.append(Spacer(1, 8))
     story.append(Paragraph("（三）优化建议", styles["Normal"]))
     for a in insights.get("advice", []):
-        story.append(Paragraph(f"• {a}", styles["Normal"]))
+        story.append(Paragraph(f"• {a}", styles["ListItem"]))
 
     # ===== 免责声明 =====
     story.append(Spacer(1, 24))
@@ -188,8 +271,15 @@ def generate_pdf(file_path, summary, insights, chart_path):
         )
     )
 
+    # 构建PDF
     doc.build(
         story,
         onFirstPage=_header_footer,
         onLaterPages=_header_footer,
     )
+
+
+# ============================================================
+# 兼容性：如果你需要在其他文件中导入 FONT_LOADED 状态
+# ============================================================
+__all__ = ["generate_pdf", "FONT_LOADED", "ACTIVE_FONT"]
