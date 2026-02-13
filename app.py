@@ -66,7 +66,13 @@ import plotly.io as pio
 if "chart_path" not in st.session_state:
     st.session_state.chart_path = None
 
+# 初始化
+if "show_pdf_button" not in st.session_state:
+    st.session_state.show_pdf_button = False
+if "pdf_ready" not in st.session_state:
+    st.session_state.pdf_ready = False
 
+# ----- 该按钮始终可见 -----
 if st.button("生成我的家庭资产全景图"):
     summary = calculate_summary(profile)
     breakdown = asset_breakdown(profile)
@@ -118,6 +124,8 @@ if st.button("生成我的家庭资产全景图"):
         "pdf_ready": False,
     })
 
+    # 设置按钮【📄 生成家庭资产结构体检报告（PDF）】可见
+    st.session_state.show_pdf_button = True
 
 if st.session_state.summary:
     summary = st.session_state.summary
@@ -146,47 +154,49 @@ if st.session_state.summary:
     # for insight in insights:
     #     st.info(insight)
 
-if st.button("📄 生成家庭资产结构体检报告（PDF）"):
-    with st.spinner("正在生成报告，请稍候..."):
-        # ✅ 导出前强制设置中文字体（双重保险）
-        fig = st.session_state.fig
-        chinese_font = "WenQuanYi Micro Hei, Microsoft YaHei, '微软雅黑', Arial, sans-serif"
+# ----- 第二个按钮：条件显示 -----
+if st.session_state.show_pdf_button:
+    if st.button("📄 生成家庭资产结构体检报告（PDF）"):
+        with st.spinner("正在生成报告，请稍候..."):
+            # ✅ 导出前强制设置中文字体（双重保险）
+            fig = st.session_state.fig
+            chinese_font = "WenQuanYi Micro Hei, Microsoft YaHei, '微软雅黑', Arial, sans-serif"
 
-        fig.update_traces(
-            textfont=dict(family=chinese_font)
-        )
-        fig.update_layout(
-            title=dict(font=dict(family=chinese_font)),
-            font=dict(family=chinese_font)
-        )
-
-        # 1️⃣ 导出饼图
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as img:
-            pio.write_image(
-                fig,  # 使用已更新字体的 fig
-                img.name,
-                width=800,
-                height=500,
-                engine="kaleido",
+            fig.update_traces(
+                textfont=dict(family=chinese_font)
             )
-            chart_path = img.name
-
-        # 2️⃣ 生成 PDF（你的 ReportLab 已正常）
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as pdf:
-            generate_pdf(
-                file_path=pdf.name,
-                summary=st.session_state.summary,
-                insights=st.session_state.insights,
-                chart_path=chart_path,
+            fig.update_layout(
+                title=dict(font=dict(family=chinese_font)),
+                font=dict(family=chinese_font)
             )
-            st.session_state.pdf_path = pdf.name
-            st.session_state.pdf_ready = True
 
-if st.session_state.get("pdf_ready"):
-    with open(st.session_state.pdf_path, "rb") as f:
-        st.download_button(
-            label="⬇️ 下载 PDF 报告",
-            data=f,
-            file_name="家庭资产结构体检报告.pdf",
-            mime="application/pdf",
-        )
+            # 1️⃣ 导出饼图
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as img:
+                pio.write_image(
+                    fig,  # 使用已更新字体的 fig
+                    img.name,
+                    width=800,
+                    height=500,
+                    engine="kaleido",
+                )
+                chart_path = img.name
+
+            # 2️⃣ 生成 PDF（你的 ReportLab 已正常）
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as pdf:
+                generate_pdf(
+                    file_path=pdf.name,
+                    summary=st.session_state.summary,
+                    insights=st.session_state.insights,
+                    chart_path=chart_path,
+                )
+                st.session_state.pdf_path = pdf.name
+                st.session_state.pdf_ready = True
+
+    if st.session_state.get("pdf_ready"):
+        with open(st.session_state.pdf_path, "rb") as f:
+            st.download_button(
+                label="⬇️ 下载 PDF 报告",
+                data=f,
+                file_name="家庭资产结构体检报告.pdf",
+                mime="application/pdf",
+            )
