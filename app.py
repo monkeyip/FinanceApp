@@ -82,18 +82,30 @@ if st.button("生成我的家庭资产全景图"):
         color_discrete_sequence=px.colors.qualitative.Set2,
     )
 
+    # ✅ 云端优先使用文泉驿微米黑，本地备选微软雅黑
+    chinese_font = "WenQuanYi Micro Hei, Microsoft YaHei, '微软雅黑', Arial, sans-serif"
+
     fig.update_traces(
         textinfo="percent+label",
         textfont=dict(
             size=14,
             color="black",
-            family="Arial",
+            family=chinese_font,   # 关键修复
         ),
         hovertemplate="<b>%{label}</b><br>金额：%{value:,.0f}<br>占比：%{percent}<extra></extra>",
     )
 
     fig.update_layout(
-        showlegend=False
+        showlegend=False,
+        title=dict(
+            text="家庭资产结构分布",
+            font=dict(
+                family=chinese_font,
+                size=18,
+                color="black"
+            ),
+            x=0.5
+        )
     )
 
     insights = generate_structure_insights(breakdown, summary)
@@ -105,10 +117,6 @@ if st.button("生成我的家庭资产全景图"):
         "insights": insights,
         "pdf_ready": False,
     })
-
-    # 展示饼图
-    # if "fig" in st.session_state:
-    #     st.plotly_chart(st.session_state.fig, width="stretch")
 
 
 if st.session_state.summary:
@@ -140,11 +148,22 @@ if st.session_state.summary:
 
 if st.button("📄 生成家庭资产结构体检报告（PDF）"):
     with st.spinner("正在生成报告，请稍候..."):
+        # ✅ 导出前强制设置中文字体（双重保险）
+        fig = st.session_state.fig
+        chinese_font = "WenQuanYi Micro Hei, Microsoft YaHei, '微软雅黑', Arial, sans-serif"
 
-        # 1️⃣ 导出饼图（只做一次）
+        fig.update_traces(
+            textfont=dict(family=chinese_font)
+        )
+        fig.update_layout(
+            title=dict(font=dict(family=chinese_font)),
+            font=dict(family=chinese_font)
+        )
+
+        # 1️⃣ 导出饼图
         with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as img:
             pio.write_image(
-                st.session_state.fig,
+                fig,  # 使用已更新字体的 fig
                 img.name,
                 width=800,
                 height=500,
@@ -152,7 +171,7 @@ if st.button("📄 生成家庭资产结构体检报告（PDF）"):
             )
             chart_path = img.name
 
-        # 2️⃣ 生成 PDF
+        # 2️⃣ 生成 PDF（你的 ReportLab 已正常）
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as pdf:
             generate_pdf(
                 file_path=pdf.name,
@@ -160,7 +179,6 @@ if st.button("📄 生成家庭资产结构体检报告（PDF）"):
                 insights=st.session_state.insights,
                 chart_path=chart_path,
             )
-
             st.session_state.pdf_path = pdf.name
             st.session_state.pdf_ready = True
 
